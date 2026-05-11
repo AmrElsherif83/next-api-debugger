@@ -6,14 +6,14 @@ import type { LogEntry, LogLevel } from '@/types/debug';
 /** How often the panel automatically re-fetches logs (milliseconds). */
 export const POLL_INTERVAL_MS = 5_000;
 
-const LEVEL_COLORS: Record<string, string> = {
+const LEVEL_COLORS: Record<LogLevel, string> = {
   info: 'text-blue-400',
   warn: 'text-yellow-400',
   error: 'text-red-400',
   debug: 'text-purple-400',
 };
 
-const LEVEL_BADGE: Record<string, string> = {
+const LEVEL_BADGE: Record<LogLevel, string> = {
   info: 'bg-blue-900 text-blue-300',
   warn: 'bg-yellow-900 text-yellow-300',
   error: 'bg-red-900 text-red-300',
@@ -25,7 +25,7 @@ const ALL_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
 /** Returns the Tailwind className string for a level filter button. */
 function levelFilterClass(lvl: LogLevel, active: boolean): string {
   const base = 'px-2 py-0.5 text-[10px] rounded transition';
-  if (active) return `${base} ${LEVEL_BADGE[lvl] ?? 'bg-gray-500 text-white'}`;
+  if (active) return `${base} ${LEVEL_BADGE[lvl]}`;
   return `${base} bg-gray-800 text-gray-400 hover:bg-gray-700`;
 }
 
@@ -73,14 +73,30 @@ export default function DebugPanel({ onClose }: Props) {
   }, [loadLogs]);
 
   const clearLogs = useCallback(async () => {
-    await fetch('/api/debug/logs', { method: 'DELETE' });
-    setEntries([]);
+    try {
+      const res = await fetch('/api/debug/logs', { method: 'DELETE' });
+      if (!res.ok) {
+        setFetchError(`Clear failed: server returned ${res.status}`);
+        return;
+      }
+      setEntries([]);
+      // Clear any lingering error banner from a previous failed request.
+      setFetchError(null);
+    } catch {
+      setFetchError('Clear failed: debug endpoint unavailable');
+    }
   }, []);
 
   const copyToClipboard = useCallback(async (text: string, id: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 1500);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 1500);
+    } catch {
+      // Clipboard write failed (e.g. permission denied or insecure context).
+      // This is a debug-only convenience; silently swallow to avoid surfacing
+      // an unhandled rejection in the application.
+    }
   }, []);
 
   // Fetch on first render and poll every POLL_INTERVAL_MS.
@@ -164,14 +180,14 @@ export default function DebugPanel({ onClose }: Props) {
             <div className="flex items-center gap-2 flex-wrap">
               <span
                 data-testid="log-level-badge"
-                className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${LEVEL_BADGE[entry.level] ?? 'bg-gray-700 text-gray-300'}`}
+                className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${LEVEL_BADGE[entry.level]}`}
               >
                 {entry.level}
               </span>
               <span className="text-gray-500 text-[10px]">{entry.timestamp}</span>
               <span className="text-gray-400 text-[10px]">[{entry.source}]</span>
               <span className="text-gray-400 text-[10px] italic">[{entry.category}]</span>
-              <span className={`flex-1 truncate ${LEVEL_COLORS[entry.level] ?? 'text-gray-300'}`}>
+              <span className={`flex-1 truncate ${LEVEL_COLORS[entry.level]}`}>
                 {entry.message}
               </span>
             </div>

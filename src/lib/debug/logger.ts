@@ -1,4 +1,3 @@
-import { randomUUID } from 'crypto';
 import { isDebugEnabled } from './env';
 import { addEntry } from './log-store';
 import type { LogLevel, LogSource, LogCategory, LogEntry } from '@/types/debug';
@@ -12,7 +11,7 @@ function createEntry(
   requestId?: string,
 ): LogEntry {
   return {
-    id: randomUUID(),
+    id: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
     level,
     source,

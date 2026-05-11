@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-import { isDebugEnabled } from "@/lib/debug/env";
+import { isDebugEnabledServer } from "@/lib/debug/env";
 import DebugButton from "@/components/debug/DebugButton";
 
 const geistSans = localFont({
@@ -26,7 +26,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const debugEnabled = isDebugEnabled();
+  const debugEnabled = isDebugEnabledServer();
 
   return (
     <html

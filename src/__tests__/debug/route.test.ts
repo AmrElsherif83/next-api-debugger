@@ -2,18 +2,18 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { LogEntry } from '@/types/debug';
 import { NextRequest } from 'next/server';
 
-vi.mock('@/lib/debug/env', () => ({ isDebugEnabled: vi.fn(() => true) }));
+vi.mock('@/lib/debug/env', () => ({ isDebugEnabledServer: vi.fn(() => true) }));
 vi.mock('@/lib/debug/log-store', () => ({
   getEntries: vi.fn(() => []),
   clearEntries: vi.fn(),
   addEntry: vi.fn(),
 }));
 
-import { isDebugEnabled } from '@/lib/debug/env';
+import { isDebugEnabledServer } from '@/lib/debug/env';
 import { getEntries, clearEntries, addEntry } from '@/lib/debug/log-store';
 import { GET, POST, DELETE } from '@/app/api/debug/logs/route';
 
-const mockIsDebugEnabled = isDebugEnabled as ReturnType<typeof vi.fn>;
+const mockIsDebugEnabled = isDebugEnabledServer as ReturnType<typeof vi.fn>;
 const mockGetEntries = getEntries as ReturnType<typeof vi.fn>;
 const mockClearEntries = clearEntries as ReturnType<typeof vi.fn>;
 const mockAddEntry = addEntry as ReturnType<typeof vi.fn>;
