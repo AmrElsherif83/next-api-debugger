@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { LogEntry } from '@/types/debug';
 
 const LEVEL_COLORS: Record<string, string> = {
@@ -25,11 +25,11 @@ interface Props {
 
 export default function DebugPanel({ onClose }: Props) {
   const [entries, setEntries] = useState<LogEntry[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const fetchLogs = useCallback(async () => {
-    setLoading(true);
+  /** Loads logs without touching loading state — safe to call inside useEffect. */
+  const loadLogs = useCallback(async () => {
     try {
       const res = await fetch('/api/debug/logs');
       const data: LogEntry[] = await res.json();
@@ -38,6 +38,12 @@ export default function DebugPanel({ onClose }: Props) {
       setLoading(false);
     }
   }, []);
+
+  /** Called by the Refresh button (event handler) — may set loading state freely. */
+  const refreshLogs = useCallback(async () => {
+    setLoading(true);
+    await loadLogs();
+  }, [loadLogs]);
 
   const clearLogs = useCallback(async () => {
     await fetch('/api/debug/logs', { method: 'DELETE' });
@@ -51,9 +57,9 @@ export default function DebugPanel({ onClose }: Props) {
   }, []);
 
   // Fetch on first render of the panel.
-  useState(() => {
-    fetchLogs();
-  });
+  useEffect(() => {
+    loadLogs();
+  }, [loadLogs]);
 
   return (
     <div className="fixed bottom-14 right-4 z-50 flex flex-col w-[680px] max-w-[95vw] h-[480px] bg-gray-950 border border-gray-700 rounded-xl shadow-2xl overflow-hidden font-mono text-sm">
@@ -62,7 +68,7 @@ export default function DebugPanel({ onClose }: Props) {
         <span className="text-gray-200 font-semibold tracking-wide">🛠 Debug Console</span>
         <div className="flex gap-2">
           <button
-            onClick={fetchLogs}
+            onClick={refreshLogs}
             className="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded transition"
           >
             {loading ? '…' : '↻ Refresh'}
