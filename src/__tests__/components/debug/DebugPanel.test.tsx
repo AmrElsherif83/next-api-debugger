@@ -344,25 +344,31 @@ describe('DebugPanel — safe failure', () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 403,
+      statusText: 'Forbidden',
       json: () => Promise.resolve({}),
     } as unknown as Response);
 
     render(<DebugPanel onClose={onClose} />);
     await waitFor(() => {
-      expect(screen.getByText(/403/)).toBeInTheDocument();
+      expect(screen.getByText(/403 Forbidden/)).toBeInTheDocument();
     });
   });
 
   it('clears the error banner after a subsequent successful fetch', async () => {
-    let callCount = 0;
-    global.fetch = vi.fn(() => {
-      const first = callCount++ === 0;
-      return Promise.resolve({
-        ok: !first,
-        status: first ? 503 : 200,
-        json: () => Promise.resolve(first ? {} : []),
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        statusText: 'Service Unavailable',
+        json: () => Promise.resolve({}),
+      } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        json: () => Promise.resolve([]),
       } as unknown as Response);
-    });
 
     render(<DebugPanel onClose={onClose} />);
     await waitFor(() => expect(screen.getByText(/503/)).toBeInTheDocument());

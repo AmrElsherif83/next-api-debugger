@@ -22,6 +22,13 @@ const LEVEL_BADGE: Record<string, string> = {
 
 const ALL_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
 
+/** Returns the Tailwind className string for a level filter button. */
+function levelFilterClass(lvl: LogLevel, active: boolean): string {
+  const base = 'px-2 py-0.5 text-[10px] rounded transition';
+  if (active) return `${base} ${LEVEL_BADGE[lvl] ?? 'bg-gray-500 text-white'}`;
+  return `${base} bg-gray-800 text-gray-400 hover:bg-gray-700`;
+}
+
 interface Props {
   onClose: () => void;
 }
@@ -45,7 +52,8 @@ export default function DebugPanel({ onClose }: Props) {
     try {
       const res = await fetch('/api/debug/logs');
       if (!res.ok) {
-        errorMsg = `Debug API returned ${res.status}`;
+        const detail = res.statusText ? ` ${res.statusText}` : '';
+        errorMsg = `Debug API returned ${res.status}${detail}`;
       } else {
         nextEntries = (await res.json()) as LogEntry[];
       }
@@ -128,7 +136,7 @@ export default function DebugPanel({ onClose }: Props) {
             key={lvl}
             onClick={() => setLevelFilter(lvl)}
             aria-label={`Filter by ${lvl}`}
-            className={`px-2 py-0.5 text-[10px] rounded transition ${levelFilter === lvl ? (LEVEL_BADGE[lvl] ?? 'bg-gray-500 text-white') : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+            className={levelFilterClass(lvl, levelFilter === lvl)}
           >
             {lvl}
           </button>
