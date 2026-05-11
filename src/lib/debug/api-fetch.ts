@@ -1,4 +1,3 @@
-import { randomUUID } from 'crypto';
 import { isDebugEnabled } from './env';
 import { addEntry } from './log-store';
 import { toCurl, maskHeaders } from './curl-generator';
@@ -86,7 +85,7 @@ export async function apiFetch(
       ? truncate(bodyText, bodyPreviewLimit)
       : undefined;
 
-  const requestId = randomUUID();
+  const requestId = crypto.randomUUID();
   const startMs = Date.now();
   let response: Response | undefined;
   let errorMessage: string | undefined;
@@ -129,7 +128,7 @@ export async function apiFetch(
     : `${prefix}${method} ${url} — ${response!.status}`;
 
   const entry: LogEntry = {
-    id: randomUUID(),
+    id: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
     level,
     source: 'server',
@@ -145,6 +144,8 @@ export async function apiFetch(
     throw new Error(errorMessage);
   }
 
+  // `errorMessage` is set only when `response` is undefined (fetch threw), so
+  // here response is guaranteed to be defined when errorMessage is absent.
   return response!;
 }
 
@@ -160,6 +161,8 @@ function normaliseHeaders(headers: RequestInit['headers'] | undefined): Record<s
   if (Array.isArray(headers)) {
     return Object.fromEntries(headers);
   }
+  // `Headers` and `Array` cases are handled above; the only remaining type in
+  // `HeadersInit` is `Record<string, string>`, so the cast is exhaustive.
   return headers as Record<string, string>;
 }
 

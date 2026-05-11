@@ -118,6 +118,16 @@ describe('toCurl', () => {
     expect(result).toContain("-d 'it'\\''s a test'");
   });
 
+  it('escapes single quotes in the URL', () => {
+    const result = toCurl("https://example.com/it's", 'GET', {});
+    expect(result).toContain("curl -X GET 'https://example.com/it'\\''s'");
+  });
+
+  it('escapes single quotes in header values', () => {
+    const result = toCurl('https://example.com', 'GET', { 'X-Custom': "val'ue" });
+    expect(result).toContain("X-Custom: val'\\''ue");
+  });
+
   it('omits the body section when body is undefined', () => {
     const result = toCurl('https://example.com', 'GET', {});
     expect(result).not.toContain('-d');

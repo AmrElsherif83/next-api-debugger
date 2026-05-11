@@ -10,8 +10,22 @@ const MAX_ENTRIES = 500;
  *
  * This store is intentionally simple: it is NOT suitable for production use,
  * multi-process deployments, or persistence across server restarts.
+ *
+ * HMR note: in development, Next.js can re-evaluate server modules when files
+ * change (Hot Module Replacement). A plain module-level array would be reset
+ * to [] on each re-evaluation, losing accumulated debug entries. To prevent
+ * that, the store is pinned on `globalThis` in development so it survives HMR
+ * cycles. This pattern has no effect in test or production environments.
  */
-const store: LogEntry[] = [];
+
+/** Augmented global type used solely to namespace the HMR-stable store. */
+type DebugGlobal = typeof globalThis & { __nextDebugLogStore?: LogEntry[] };
+
+const store: LogEntry[] =
+  process.env.NODE_ENV === 'development'
+    ? // Pin to globalThis so the array survives Next.js HMR re-evaluation.
+      ((globalThis as DebugGlobal).__nextDebugLogStore ??= [])
+    : [];
 
 export function addEntry(entry: LogEntry): void {
   store.push(entry);

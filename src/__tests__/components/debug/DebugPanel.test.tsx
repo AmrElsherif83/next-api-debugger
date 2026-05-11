@@ -210,6 +210,34 @@ describe('DebugPanel', () => {
       expect(screen.getByRole('button', { name: /copy/i })).toBeInTheDocument();
     });
   });
+
+  it('does not throw when clipboard.writeText rejects (e.g. permission denied)', async () => {
+    const entries = [
+      makeEntry({
+        id: 'clip-err',
+        apiCall: {
+          method: 'GET',
+          url: 'https://example.com',
+          requestHeaders: {},
+          curl: "curl -X GET 'https://example.com'",
+        },
+      }),
+    ];
+    mockFetch([{ ok: true, data: entries }]);
+
+    // Simulate clipboard permission denied.
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockRejectedValue(new DOMException('Permission denied')) },
+    });
+
+    render(<DebugPanel onClose={onClose} />);
+    await waitFor(() => screen.getByRole('button', { name: /copy/i }));
+
+    // Clicking Copy must not surface an unhandled rejection.
+    await expect(
+      async () => fireEvent.click(screen.getByRole('button', { name: /copy/i })),
+    ).not.toThrow();
+  });
 });
 
 // ── source field ─────────────────────────────────────────────────────────────
@@ -377,6 +405,76 @@ describe('DebugPanel — safe failure', () => {
     fireEvent.click(screen.getByRole('button', { name: /refresh/i }));
     await waitFor(() => {
       expect(screen.queryByText(/503/)).not.toBeInTheDocument();
+    });
+  });
+
+  // ── clearLogs error handling ──────────────────────────────────────────────
+
+  it('shows an error banner when the DELETE request fails with a non-ok status', async () => {
+    global.fetch = vi
+      .fn()
+      // Initial GET (load)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve([makeEntry({ id: 'e1', message: 'Entry' })]),
+      } as unknown as Response)
+      // DELETE returns 403 (e.g. production guard)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: () => Promise.resolve({}),
+      } as unknown as Response);
+
+    render(<DebugPanel onClose={onClose} />);
+    await waitFor(() => expect(screen.getByText('Entry')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /clear/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/clear failed/i)).toBeInTheDocument();
+    });
+  });
+
+  it('keeps existing entries when the DELETE request fails', async () => {
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve([makeEntry({ id: 'e1', message: 'Keep me' })]),
+      } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: () => Promise.resolve({}),
+      } as unknown as Response);
+
+    render(<DebugPanel onClose={onClose} />);
+    await waitFor(() => expect(screen.getByText('Keep me')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /clear/i }));
+    await waitFor(() => expect(screen.getByText(/clear failed/i)).toBeInTheDocument());
+
+    // Entry must still be visible — the UI must not clear on a failed DELETE.
+    expect(screen.getByText('Keep me')).toBeInTheDocument();
+  });
+
+  it('shows an error banner when the DELETE request throws (network error)', async () => {
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve([]),
+      } as unknown as Response)
+      .mockRejectedValueOnce(new Error('Network error'));
+
+    render(<DebugPanel onClose={onClose} />);
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByRole('button', { name: /clear/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/clear failed/i)).toBeInTheDocument();
     });
   });
 });

@@ -1,6 +1,5 @@
-import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { isDebugEnabled } from '@/lib/debug/env';
+import { isDebugEnabledServer } from '@/lib/debug/env';
 import { getEntries, clearEntries, addEntry } from '@/lib/debug/log-store';
 import type { LogLevel, LogCategory, LogEntry } from '@/types/debug';
 
@@ -83,7 +82,7 @@ function parsePayload(body: unknown): ClientLogPayload | string {
 
 /** GET /api/debug/logs — Returns all stored log entries. */
 export async function GET(): Promise<NextResponse> {
-  if (!isDebugEnabled()) return forbidden();
+  if (!isDebugEnabledServer()) return forbidden();
   return NextResponse.json(getEntries());
 }
 
@@ -94,7 +93,7 @@ export async function GET(): Promise<NextResponse> {
  * client manipulation.
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  if (!isDebugEnabled()) return forbidden();
+  if (!isDebugEnabledServer()) return forbidden();
 
   let body: unknown;
   try {
@@ -111,7 +110,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const { level, message, category = 'general', metadata, requestId } = payloadOrError;
 
   const entry: LogEntry = {
-    id: randomUUID(),
+    id: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
     level,
     source: 'client',
@@ -127,7 +126,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
 /** DELETE /api/debug/logs — Clears all stored log entries. */
 export async function DELETE(): Promise<NextResponse> {
-  if (!isDebugEnabled()) return forbidden();
+  if (!isDebugEnabledServer()) return forbidden();
   clearEntries();
   return NextResponse.json({ cleared: true });
 }

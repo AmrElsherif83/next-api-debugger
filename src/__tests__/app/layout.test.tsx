@@ -20,13 +20,13 @@ vi.mock('@/components/debug/DebugButton', () => ({
 }));
 
 vi.mock('@/lib/debug/env', () => ({
-  isDebugEnabled: vi.fn(() => true),
+  isDebugEnabledServer: vi.fn(() => true),
 }));
 
-import { isDebugEnabled } from '@/lib/debug/env';
+import { isDebugEnabledServer } from '@/lib/debug/env';
 import RootLayout from '@/app/layout';
 
-const mockIsDebugEnabled = isDebugEnabled as ReturnType<typeof vi.fn>;
+const mockIsDebugEnabled = isDebugEnabledServer as ReturnType<typeof vi.fn>;
 
 // ── Suite ─────────────────────────────────────────────────────────────────────
 
