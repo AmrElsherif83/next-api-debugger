@@ -7,7 +7,8 @@ function makeEntry(overrides: Partial<LogEntry> = {}): LogEntry {
     id: 'test-id',
     timestamp: new Date().toISOString(),
     level: 'info',
-    category: 'app',
+    source: 'server',
+    category: 'general',
     message: 'test message',
     ...overrides,
   };

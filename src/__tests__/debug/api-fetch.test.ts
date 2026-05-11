@@ -117,9 +117,17 @@ describe('apiFetch', () => {
   it('uses the custom logCategory when provided', async () => {
     vi.mocked(fetch).mockResolvedValue(makeResponse(200));
 
-    await apiFetch('https://example.com/categorised', { logCategory: 'demo' });
+    await apiFetch('https://example.com/categorised', { logCategory: 'response' });
 
-    expect(mockAddEntry.mock.calls[0][0].category).toBe('demo');
+    expect(mockAddEntry.mock.calls[0][0].category).toBe('response');
+  });
+
+  it('defaults category to "request" when none is specified', async () => {
+    vi.mocked(fetch).mockResolvedValue(makeResponse(200));
+
+    await apiFetch('https://example.com/default-category');
+
+    expect(mockAddEntry.mock.calls[0][0].category).toBe('request');
   });
 
   it('defaults method to GET when none is specified', async () => {
@@ -128,6 +136,24 @@ describe('apiFetch', () => {
     await apiFetch('https://example.com/default-method');
 
     expect(mockAddEntry.mock.calls[0][0].apiCall.method).toBe('GET');
+  });
+
+  it('sets source to "server" on every entry', async () => {
+    vi.mocked(fetch).mockResolvedValue(makeResponse(200));
+
+    await apiFetch('https://example.com/source');
+
+    expect(mockAddEntry.mock.calls[0][0].source).toBe('server');
+  });
+
+  it('sets a requestId on every entry', async () => {
+    vi.mocked(fetch).mockResolvedValue(makeResponse(200));
+
+    await apiFetch('https://example.com/reqid');
+
+    const entry = mockAddEntry.mock.calls[0][0];
+    expect(typeof entry.requestId).toBe('string');
+    expect(entry.requestId.length).toBeGreaterThan(0);
   });
 
   it('bypasses logging in production and calls fetch directly', async () => {

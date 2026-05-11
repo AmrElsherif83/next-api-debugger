@@ -2,11 +2,11 @@ import { randomUUID } from 'crypto';
 import { isDebugEnabled } from './env';
 import { addEntry } from './log-store';
 import { toCurl, maskHeaders } from './curl-generator';
-import type { ApiCallLog, LogEntry } from '@/types/debug';
+import type { ApiCallLog, LogCategory, LogEntry } from '@/types/debug';
 
 export type ApiFetchInit = RequestInit & {
-  /** Override the log category. Defaults to 'api'. */
-  logCategory?: string;
+  /** Override the log category. Defaults to 'request'. */
+  logCategory?: LogCategory;
 };
 
 /**
@@ -24,7 +24,7 @@ export async function apiFetch(url: string, init: ApiFetchInit = {}): Promise<Re
     return fetch(url, init);
   }
 
-  const { logCategory = 'api', ...fetchInit } = init;
+  const { logCategory = 'request', ...fetchInit } = init;
   const method = (fetchInit.method ?? 'GET').toUpperCase();
 
   // Normalise headers to a plain Record for logging.
@@ -33,6 +33,7 @@ export async function apiFetch(url: string, init: ApiFetchInit = {}): Promise<Re
   const bodyText = typeof fetchInit.body === 'string' ? fetchInit.body : undefined;
   const curl = toCurl(url, method, rawHeaders, bodyText);
 
+  const requestId = randomUUID();
   const startMs = Date.now();
   let response: Response | undefined;
   let errorMessage: string | undefined;
@@ -64,9 +65,11 @@ export async function apiFetch(url: string, init: ApiFetchInit = {}): Promise<Re
     id: randomUUID(),
     timestamp: new Date().toISOString(),
     level,
+    source: 'server',
     category: logCategory,
     message,
     apiCall,
+    requestId,
   };
 
   addEntry(entry);

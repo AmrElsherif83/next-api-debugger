@@ -17,18 +17,18 @@ export default async function HomePage() {
   let post: Record<string, unknown> | null = null;
   try {
     const res = await apiFetch("https://jsonplaceholder.typicode.com/posts/1", {
-      logCategory: "demo",
+      logCategory: "request",
     });
     post = (await res.json()) as Record<string, unknown>;
-    logger.info("Fetched post successfully", { postId: post.id }, "demo");
+    logger.info("Fetched post successfully", { postId: post.id }, "response");
   } catch {
-    logger.error("Failed to fetch post", {}, "demo");
+    logger.error("Failed to fetch post", {}, "exception");
   }
 
   // ── 3. Call that returns a non-2xx status ────────────────────────────────
   try {
     await apiFetch("https://jsonplaceholder.typicode.com/posts/9999", {
-      logCategory: "demo",
+      logCategory: "request",
     });
   } catch {
     // intentionally swallowed for demo purposes
@@ -42,7 +42,7 @@ export default async function HomePage() {
         "X-Api-Key": "my-api-key-12345",
         "Content-Type": "application/json",
       },
-      logCategory: "demo",
+      logCategory: "request",
     });
   } catch {
     // intentionally swallowed

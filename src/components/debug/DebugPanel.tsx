@@ -8,7 +8,6 @@ const LEVEL_COLORS: Record<string, string> = {
   warn: 'text-yellow-400',
   error: 'text-red-400',
   debug: 'text-purple-400',
-  log: 'text-gray-300',
 };
 
 const LEVEL_BADGE: Record<string, string> = {
@@ -16,7 +15,6 @@ const LEVEL_BADGE: Record<string, string> = {
   warn: 'bg-yellow-900 text-yellow-300',
   error: 'bg-red-900 text-red-300',
   debug: 'bg-purple-900 text-purple-300',
-  log: 'bg-gray-700 text-gray-300',
 };
 
 interface Props {
@@ -101,7 +99,7 @@ export default function DebugPanel({ onClose }: Props) {
             {/* Row 1: badge + timestamp + category + message */}
             <div className="flex items-center gap-2 flex-wrap">
               <span
-                className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${LEVEL_BADGE[entry.level] ?? LEVEL_BADGE.log}`}
+                className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${LEVEL_BADGE[entry.level] ?? 'bg-gray-700 text-gray-300'}`}
               >
                 {entry.level}
               </span>
@@ -112,10 +110,10 @@ export default function DebugPanel({ onClose }: Props) {
               </span>
             </div>
 
-            {/* Row 2: extra data */}
-            {entry.data !== undefined && (
+            {/* Row 2: extra metadata */}
+            {entry.metadata !== undefined && (
               <pre className="text-[10px] text-gray-400 bg-gray-950 rounded p-2 overflow-x-auto">
-                {JSON.stringify(entry.data, null, 2)}
+                {JSON.stringify(entry.metadata, null, 2)}
               </pre>
             )}
 
@@ -148,17 +146,19 @@ export default function DebugPanel({ onClose }: Props) {
                 </div>
 
                 {/* cURL block */}
-                <div className="relative">
-                  <pre className="text-[10px] text-green-300 bg-gray-950 rounded p-2 overflow-x-auto pr-16">
-                    {entry.apiCall.curl}
-                  </pre>
-                  <button
-                    onClick={() => copyToClipboard(entry.apiCall!.curl, entry.id)}
-                    className="absolute top-1.5 right-1.5 px-2 py-0.5 text-[9px] bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition"
-                  >
-                    {copiedId === entry.id ? '✓ Copied' : 'Copy'}
-                  </button>
-                </div>
+                {entry.apiCall.curl !== undefined && (
+                  <div className="relative">
+                    <pre className="text-[10px] text-green-300 bg-gray-950 rounded p-2 overflow-x-auto pr-16">
+                      {entry.apiCall.curl}
+                    </pre>
+                    <button
+                      onClick={() => copyToClipboard(entry.apiCall!.curl!, entry.id)}
+                      className="absolute top-1.5 right-1.5 px-2 py-0.5 text-[9px] bg-gray-700 hover:bg-gray-600 text-gray-300 rounded transition"
+                    >
+                      {copiedId === entry.id ? '✓ Copied' : 'Copy'}
+                    </button>
+                  </div>
+                )}
 
                 {/* Error */}
                 {entry.apiCall.error && (
