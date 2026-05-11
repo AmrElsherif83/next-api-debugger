@@ -20,7 +20,8 @@ function makeEntry(id: string): LogEntry {
     id,
     timestamp: new Date().toISOString(),
     level: 'info',
-    category: 'app',
+    source: 'server',
+    category: 'general',
     message: `entry ${id}`,
   };
 }
