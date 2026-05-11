@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import type { LogEntry } from '@/types/debug';
-import DebugPanel from '@/components/debug/DebugPanel';
+import DebugPanel, { POLL_INTERVAL_MS } from '@/components/debug/DebugPanel';
 import { isDebugEnabled } from '@/lib/debug/env';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -153,8 +153,9 @@ describe('DebugPanel', () => {
 
     render(<DebugPanel onClose={onClose} />);
     await waitFor(() => {
-      expect(screen.getByText('warn')).toBeInTheDocument();
-      expect(screen.getByText('error')).toBeInTheDocument();
+      const badges = screen.getAllByTestId('log-level-badge');
+      expect(badges.find((b) => b.textContent === 'warn')).toBeTruthy();
+      expect(badges.find((b) => b.textContent === 'error')).toBeTruthy();
     });
   });
 
@@ -208,6 +209,227 @@ describe('DebugPanel', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /copy/i })).toBeInTheDocument();
     });
+  });
+});
+
+// ── source field ─────────────────────────────────────────────────────────────
+
+describe('DebugPanel — source field', () => {
+  const onClose = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('displays the source field for each entry', async () => {
+    const entries = [makeEntry({ id: 's1', source: 'server' })];
+    mockFetch([{ ok: true, data: entries }]);
+
+    render(<DebugPanel onClose={onClose} />);
+    await waitFor(() => {
+      expect(screen.getByText('[server]')).toBeInTheDocument();
+    });
+  });
+
+  it('displays "client" as the source when entry source is client', async () => {
+    const entries = [makeEntry({ id: 's2', source: 'client' })];
+    mockFetch([{ ok: true, data: entries }]);
+
+    render(<DebugPanel onClose={onClose} />);
+    await waitFor(() => {
+      expect(screen.getByText('[client]')).toBeInTheDocument();
+    });
+  });
+});
+
+// ── level filter ──────────────────────────────────────────────────────────────
+
+describe('DebugPanel — level filter', () => {
+  const onClose = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders filter buttons for each level', async () => {
+    mockFetch([{ ok: true, data: [] }]);
+    render(<DebugPanel onClose={onClose} />);
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+
+    expect(screen.getByRole('button', { name: /show all levels/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /filter by debug/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /filter by info/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /filter by warn/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /filter by error/i })).toBeInTheDocument();
+  });
+
+  it('hides non-matching entries when a level filter is applied', async () => {
+    const entries = [
+      makeEntry({ id: '1', level: 'info', message: 'Info message' }),
+      makeEntry({ id: '2', level: 'error', message: 'Error message' }),
+    ];
+    mockFetch([{ ok: true, data: entries }]);
+
+    render(<DebugPanel onClose={onClose} />);
+    await waitFor(() => {
+      expect(screen.getByText('Info message')).toBeInTheDocument();
+      expect(screen.getByText('Error message')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /filter by error/i }));
+
+    expect(screen.queryByText('Info message')).not.toBeInTheDocument();
+    expect(screen.getByText('Error message')).toBeInTheDocument();
+  });
+
+  it('shows all entries when the "All" filter is selected after a level filter', async () => {
+    const entries = [
+      makeEntry({ id: '1', level: 'info', message: 'Info message' }),
+      makeEntry({ id: '2', level: 'error', message: 'Error message' }),
+    ];
+    mockFetch([{ ok: true, data: entries }]);
+
+    render(<DebugPanel onClose={onClose} />);
+    await waitFor(() => expect(screen.getByText('Info message')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /filter by error/i }));
+    expect(screen.queryByText('Info message')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /show all levels/i }));
+    expect(screen.getByText('Info message')).toBeInTheDocument();
+    expect(screen.getByText('Error message')).toBeInTheDocument();
+  });
+
+  it('shows "No log entries yet." when filter matches nothing', async () => {
+    const entries = [makeEntry({ id: '1', level: 'info', message: 'Info only' })];
+    mockFetch([{ ok: true, data: entries }]);
+
+    render(<DebugPanel onClose={onClose} />);
+    await waitFor(() => expect(screen.getByText('Info only')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /filter by error/i }));
+
+    expect(screen.getByText(/no log entries yet/i)).toBeInTheDocument();
+  });
+});
+
+// ── safe failure ──────────────────────────────────────────────────────────────
+
+describe('DebugPanel — safe failure', () => {
+  const onClose = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('shows an error banner when fetch throws (endpoint unavailable)', async () => {
+    global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+
+    render(<DebugPanel onClose={onClose} />);
+    await waitFor(() => {
+      expect(screen.getByText(/debug endpoint unavailable/i)).toBeInTheDocument();
+    });
+  });
+
+  it('does not crash when fetch throws — panel remains mounted', async () => {
+    global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+
+    render(<DebugPanel onClose={onClose} />);
+    await waitFor(() => {
+      expect(screen.getByText(/debug console/i)).toBeInTheDocument();
+    });
+  });
+
+  it('shows an error banner when the API returns a non-ok status', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: () => Promise.resolve({}),
+    } as unknown as Response);
+
+    render(<DebugPanel onClose={onClose} />);
+    await waitFor(() => {
+      expect(screen.getByText(/403/)).toBeInTheDocument();
+    });
+  });
+
+  it('clears the error banner after a subsequent successful fetch', async () => {
+    let callCount = 0;
+    global.fetch = vi.fn(() => {
+      const first = callCount++ === 0;
+      return Promise.resolve({
+        ok: !first,
+        status: first ? 503 : 200,
+        json: () => Promise.resolve(first ? {} : []),
+      } as unknown as Response);
+    });
+
+    render(<DebugPanel onClose={onClose} />);
+    await waitFor(() => expect(screen.getByText(/503/)).toBeInTheDocument());
+
+    // Trigger a successful refresh
+    fireEvent.click(screen.getByRole('button', { name: /refresh/i }));
+    await waitFor(() => {
+      expect(screen.queryByText(/503/)).not.toBeInTheDocument();
+    });
+  });
+});
+
+// ── polling ───────────────────────────────────────────────────────────────────
+
+describe('DebugPanel — polling', () => {
+  const onClose = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFetch([{ ok: true, data: [] }]);
+  });
+
+  it(`sets up a polling interval of ${POLL_INTERVAL_MS} ms on mount`, async () => {
+    const spy = vi.spyOn(global, 'setInterval');
+
+    render(<DebugPanel onClose={onClose} />);
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+
+    expect(spy).toHaveBeenCalledWith(expect.any(Function), POLL_INTERVAL_MS);
+    spy.mockRestore();
+  });
+
+  it('clears the polling interval when the component unmounts', async () => {
+    const spy = vi.spyOn(global, 'clearInterval');
+
+    const { unmount } = render(<DebugPanel onClose={onClose} />);
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+
+    unmount();
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('re-fetches logs when the interval callback fires', async () => {
+    vi.useFakeTimers();
+    try {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve([]),
+      } as unknown as Response);
+
+      render(<DebugPanel onClose={onClose} />);
+
+      // Drain the initial mount fetch
+      await vi.advanceTimersByTimeAsync(0);
+      const callsBefore = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.length;
+
+      // Advance past the poll interval — fires the setInterval callback
+      await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS + 50);
+
+      // Fetch should have been called again by the interval
+      expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(
+        callsBefore,
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
