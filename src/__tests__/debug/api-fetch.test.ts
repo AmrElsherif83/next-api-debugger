@@ -166,4 +166,118 @@ describe('apiFetch', () => {
     expect(mockFetch).toHaveBeenCalledOnce();
     expect(mockAddEntry).not.toHaveBeenCalled();
   });
+
+  // ── ApiFetchOptions (third parameter) ────────────────────────────────────
+
+  it('uses the category from ApiFetchOptions when provided', async () => {
+    vi.mocked(fetch).mockResolvedValue(makeResponse(200));
+
+    await apiFetch('https://example.com', {}, { category: 'response' });
+
+    expect(mockAddEntry.mock.calls[0][0].category).toBe('response');
+  });
+
+  it('ApiFetchOptions.category takes precedence over init.logCategory', async () => {
+    vi.mocked(fetch).mockResolvedValue(makeResponse(200));
+
+    await apiFetch('https://example.com', { logCategory: 'general' }, { category: 'response' });
+
+    expect(mockAddEntry.mock.calls[0][0].category).toBe('response');
+  });
+
+  it('falls back to init.logCategory when options.category is absent', async () => {
+    vi.mocked(fetch).mockResolvedValue(makeResponse(200));
+
+    await apiFetch('https://example.com', { logCategory: 'general' }, {});
+
+    expect(mockAddEntry.mock.calls[0][0].category).toBe('general');
+  });
+
+  it('prepends the label to the log message when provided', async () => {
+    vi.mocked(fetch).mockResolvedValue(makeResponse(200));
+
+    await apiFetch('https://example.com', {}, { label: 'fetchUser' });
+
+    expect(mockAddEntry.mock.calls[0][0].message).toContain('[fetchUser]');
+  });
+
+  it('does not add a label prefix when label is omitted', async () => {
+    vi.mocked(fetch).mockResolvedValue(makeResponse(200));
+
+    await apiFetch('https://example.com/no-label');
+
+    expect(mockAddEntry.mock.calls[0][0].message).not.toMatch(/^\[/);
+  });
+
+  it('stores a truncated bodyPreview when bodyPreviewLimit is set', async () => {
+    vi.mocked(fetch).mockResolvedValue(makeResponse(200));
+    const body = 'x'.repeat(200);
+
+    await apiFetch('https://example.com', { method: 'POST', body }, { bodyPreviewLimit: 50 });
+
+    const apiCall: ApiCallLog = mockAddEntry.mock.calls[0][0].apiCall;
+    expect(apiCall.bodyPreview).toBeDefined();
+    expect(apiCall.bodyPreview!.length).toBeLessThanOrEqual(51); // 50 chars + ellipsis
+    expect(apiCall.bodyPreview).toContain('…');
+  });
+
+  it('does not store bodyPreview when bodyPreviewLimit is omitted', async () => {
+    vi.mocked(fetch).mockResolvedValue(makeResponse(200));
+
+    await apiFetch('https://example.com', { method: 'POST', body: '{"x":1}' });
+
+    const apiCall: ApiCallLog = mockAddEntry.mock.calls[0][0].apiCall;
+    expect(apiCall.bodyPreview).toBeUndefined();
+  });
+
+  it('stores the full body in bodyPreview when it is within the limit', async () => {
+    vi.mocked(fetch).mockResolvedValue(makeResponse(200));
+    const body = 'short body';
+
+    await apiFetch('https://example.com', { method: 'POST', body }, { bodyPreviewLimit: 100 });
+
+    const apiCall: ApiCallLog = mockAddEntry.mock.calls[0][0].apiCall;
+    expect(apiCall.bodyPreview).toBe('short body');
+  });
+
+  it('stores a truncated responsePreview when responsePreviewLimit is set', async () => {
+    const longBody = 'r'.repeat(300);
+    vi.mocked(fetch).mockResolvedValue(makeResponse(200, longBody));
+
+    await apiFetch('https://example.com', {}, { responsePreviewLimit: 100 });
+
+    const apiCall: ApiCallLog = mockAddEntry.mock.calls[0][0].apiCall;
+    expect(apiCall.responsePreview).toBeDefined();
+    expect(apiCall.responsePreview!.length).toBeLessThanOrEqual(101); // 100 chars + ellipsis
+    expect(apiCall.responsePreview).toContain('…');
+  });
+
+  it('does not store responsePreview when responsePreviewLimit is omitted', async () => {
+    vi.mocked(fetch).mockResolvedValue(makeResponse(200, '{"data":1}'));
+
+    await apiFetch('https://example.com');
+
+    const apiCall: ApiCallLog = mockAddEntry.mock.calls[0][0].apiCall;
+    expect(apiCall.responsePreview).toBeUndefined();
+  });
+
+  it('stores the full response body in responsePreview when it is within the limit', async () => {
+    vi.mocked(fetch).mockResolvedValue(makeResponse(200, '{"ok":true}'));
+
+    await apiFetch('https://example.com', {}, { responsePreviewLimit: 500 });
+
+    const apiCall: ApiCallLog = mockAddEntry.mock.calls[0][0].apiCall;
+    expect(apiCall.responsePreview).toBe('{"ok":true}');
+  });
+
+  it('still returns the original Response when responsePreviewLimit is set', async () => {
+    vi.mocked(fetch).mockResolvedValue(makeResponse(200, '{"id":42}'));
+
+    const res = await apiFetch('https://example.com', {}, { responsePreviewLimit: 50 });
+
+    // Caller can still consume the response normally.
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toEqual({ id: 42 });
+  });
 });
