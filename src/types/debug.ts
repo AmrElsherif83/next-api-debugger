@@ -35,6 +35,18 @@ export interface ApiCallLog {
    * Sensitive header values are redacted. Optional — omitted when curl generation is disabled.
    */
   curl?: string;
+  /**
+   * Truncated request body text for display in the debug console.
+   * Length is bounded by the `bodyPreviewLimit` option passed to `apiFetch`.
+   * Absent when no body was sent or no limit was configured.
+   */
+  bodyPreview?: string;
+  /**
+   * Truncated response body text for display in the debug console.
+   * Length is bounded by the `responsePreviewLimit` option passed to `apiFetch`.
+   * Absent when the response could not be read or no limit was configured.
+   */
+  responsePreview?: string;
   /** Error message if the request threw or received a non-ok response. */
   error?: string;
 }
